@@ -5,9 +5,9 @@
 
 import numpy as np
 import cv2 # opencv: https://pypi.python.org/pypi/opencv-python
-from scipy.stats import multivariate_normal as mn
 import sys
 import math
+
 
 def read_data(filename, is_RGB, visualize=False, save=False, save_name=None):
 # read the text data file
@@ -76,6 +76,7 @@ def read_data(filename, is_RGB, visualize=False, save=False, save_name=None):
 
 	return data, image
 
+
 def write_data(data, filename):
 # write the matrix into a text file
 #   write_data(data, filename) write 2d matrix data into a text file named
@@ -89,6 +90,20 @@ def write_data(data, filename):
 
 	with open(filename, "w") as f:
 		f.writelines(lines)
+
+
+def pdf_multivariate_gauss(x, mu, cov):
+# Caculate the multivariate normal density (pdf)
+# Keyword arguments:
+# 	x = numpy array of a "d x 1" sample vector
+# 	mu = numpy array of a "d x 1" mean vector
+# 	cov = "numpy array of a d x d" covariance matrix
+   
+    # evaluate the pdf of multi-variate gaussian distribution using its formula
+    part1 = 1 / ( ((2* np.pi)**(len(mu)/2)) * (np.linalg.det(cov)**(1/2)) )
+    part2 = (-1/2) * ((x-mu).T.dot(np.linalg.inv(cov))).dot((x-mu))
+    
+    return float(part1 * np.exp(part2))
 
 
 k = 2
@@ -134,15 +149,11 @@ def evaluate(data, miu, sigma, pi):
 
 	n, _ = data.shape
 
-	gaussian = []
-	for i in range(0, k):
-		gaussian.append(mn(mean=miu[i], cov=sigma[i]))
-
 	likelihood = 0
 	for i in range(0, n):
 		accumulate = 0
 		for j in range(0, k):
-			accumulate += pi[j] * gaussian[j].pdf(data[i, 2:5])
+			accumulate += pi[j] * pdf_multivariate_gauss(data[i, 2:5], miu[j], sigma[j])
 		likelihood += np.log(accumulate)
 
 	return likelihood
@@ -153,13 +164,9 @@ def expectation(data, miu, sigma, pi):
 	n, _ = data.shape
 	gamma = np.empty([n, k])
 
-	gaussian = []
-	for i in range(0, k):
-		gaussian.append(mn(mean=miu[i], cov=sigma[i]))
-
 	for i in range(0, n):
 		for j in range(0, k):
-			gamma[i, j] = pi[j] * gaussian[j].pdf(data[i, 2:5])
+			gamma[i, j] = pi[j] * pdf_multivariate_gauss(data[i, 2:5], miu[j], sigma[j])
 		gamma[i, :] = gamma[i, :] / np.sum(gamma[i, :])
 
 	return gamma
