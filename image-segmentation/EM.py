@@ -109,32 +109,35 @@ def pdf_multivariate_gauss(x, mu, cov):
 k = 2
 def initialize(data):
 # initialize parameters miu, sigma, pi for Gaussian Mixture model
-# each component of miu[i] (i = 0,...,k-1) is randomly initialized within the range of the whole data
-# sigma[i] (i = 0,...,k-1) is randomly initialized as a fraction times the covariance matrix of the whole data, the fraction is randomly chosen from 1/(2k) to 1/k
+# each component of miu[i] (i = 0,...,k-1) is randomly initialized within 40% to 60% of range of the whole data
+# sigma[i] (i = 0,...,k-1) is initialized as the covariance matrix of the whole data
+	
+	_, w = data.shape
 
-	# find the maximum and minimum value for L, a, b component
-	L_max = max(data[:, 2])
-	L_min = min(data[:, 2])
-	a_max = max(data[:, 3])
-	a_min = min(data[:, 3])
-	b_max = max(data[:, 4])
-	b_min = min(data[:, 4])
+	num_feature = w - 2
 
-	# vector for Lab max and min value
-	Lab_max = np.array([L_max, a_max, b_max])
-	Lab_min = np.array([L_min, a_min, b_min])
-	Lab_range = Lab_max - Lab_min
+	# features_max stores the maximum value for each feature
+	features_max = np.empty([num_feature])
+	# features_min stores the minimum value for each feature
+	features_min = np.empty([num_feature])
+	for i in range(2, w):
+		features_max[i-2] = max(data[:, i])
+		features_min[i-2] = min(data[:, i])
 
-	# calculate the covariance of L, a, b for the whole data, and use it to initialize sigma
-	Lab_cov = np.cov(data[:, 2:5].transpose())
+	# features_range stores the range between the maximum value and minimum value for each feature
+	features_range = features_max - features_min
+
+	# calculate the covariance of the features for the whole data, and use it to initialize sigma
+	features_cov = np.cov(data[:, 2:w].transpose())
 
 	# initialize miu and sigma for Gaussian distribution
-	miu = np.empty([k, 3])
-	sigma = np.empty([k, 3, 3])
+	miu = np.empty([k, num_feature])
+	sigma = np.empty([k, num_feature, num_feature])
 	for i in range(0, k):
-		miu[i, :] = Lab_min + np.random.uniform() * Lab_range
-		sigma[i, :, :] = np.random.uniform(1.0/(2*k), 1.0/k) * Lab_cov
-
+		miu[i] = features_min + np.random.uniform(0.4, 0.6) * features_range
+		sigma[i] = features_cov
+		# make sure the covariance matrix is positive-definite, otherwise we can not calculate its pdf
+		sigma[i] += (sigma[i,0,0] * 0.1) * np.identity(num_feature)
 
 	# initialize pi vector
 	pi = np.random.rand(k)
@@ -147,13 +150,13 @@ def initialize(data):
 def evaluate(data, miu, sigma, pi):
 # evaluate the log likelihood
 
-	n, _ = data.shape
+	n, w = data.shape
 
 	likelihood = 0
 	for i in range(0, n):
 		accumulate = 0
 		for j in range(0, k):
-			accumulate += pi[j] * pdf_multivariate_gauss(data[i, 2:5], miu[j], sigma[j])
+			accumulate += pi[j] * pdf_multivariate_gauss(data[i, 2:w], miu[j], sigma[j])
 		likelihood += np.log(accumulate)
 
 	return likelihood
@@ -161,46 +164,136 @@ def evaluate(data, miu, sigma, pi):
 def expectation(data, miu, sigma, pi):
 # evaluate the responsibilities using the current parameter values
 
-	n, _ = data.shape
+	n, w = data.shape
 	gamma = np.empty([n, k])
 
 	for i in range(0, n):
 		for j in range(0, k):
-			gamma[i, j] = pi[j] * pdf_multivariate_gauss(data[i, 2:5], miu[j], sigma[j])
+			gamma[i, j] = pi[j] * pdf_multivariate_gauss(data[i, 2:w], miu[j], sigma[j])
 		gamma[i, :] = gamma[i, :] / np.sum(gamma[i, :])
-
 	return gamma
 
 
 def maximization(data, gamma):
 # re-estimate the parameters using the current responsibilities
 
-	n, _ = data.shape
+	n, w = data.shape
+
+	num_feature = w - 2
 
 	N = np.empty([k])
 	for i in range(0, k):
 		N[i] = np.sum(gamma[:,i])
 
-	miu_update = np.empty([k, 3])
-	sigma_upate = np.empty([k, 3, 3])
+	miu_update = np.empty([k, num_feature])
+	sigma_update = np.empty([k, num_feature, num_feature])
 
 	for i in range(0, k):
 		# update miu[i]
-		miu_update[i] = np.sum(np.multiply(data[:, 2:5], gamma[:,i].reshape(n,1)), axis=0) / N[i]
+		miu_update[i] = np.sum(np.multiply(data[:, 2:w], gamma[:,i].reshape(n,1)), axis=0) / N[i]
 		# update sigma[i]
-		sigma_tmp = np.zeros([3, 3])
+		sigma_tmp = np.zeros([num_feature, num_feature])
 		for j in range(0, n):
-			sigma_tmp = sigma_tmp + gamma[j, i] * np.outer(data[j, 2:5] - miu_update[i], data[j, 2:5] - miu_update[i])
-		sigma_upate[i] = sigma_tmp / N[i]
+			sigma_tmp = sigma_tmp + gamma[j, i] * np.outer(data[j, 2:w] - miu_update[i], data[j, 2:w] - miu_update[i])
+		sigma_update[i] = sigma_tmp / N[i]
+
+		# make sure the covariance matrix is positive-definite, otherwise we can not calculate its pdf
+		sigma_update[i] += (sigma_update[i,0,0] * 0.1) * np.identity(num_feature)
 
 	# update pi
 	pi_update = N / n 
 
-	return miu_update, sigma_upate, pi_update
+	return miu_update, sigma_update, pi_update
+
+
+def cal_neighboring_diff(data, idx, h, w):
+# calculate the sum of difference between a pixel and its neighboring pixels
+
+	diff = np.zeros([h*w])
+	for i in range(0, h):
+		for j in range(0, w):
+			# make sure the index for the left most neighbor is larger than 0
+			neighbor_left = max(j-1, 0)
+			# make sure the index for the right most neighbor is smaller than w
+			neighbor_right = min(j+1, w-1)
+			# make sure the index for the upper most neighbor is larger than 0
+			neighbor_up = max(i-1, 0)
+			# make sure the index for the lower most neighbor is smaller than h
+			neighbor_down = min(i+1, h-1)
+
+			# calculate the difference between pixel (i, j) with its neighbors
+			for ii in range(neighbor_up, neighbor_down+1):
+				for jj in range(neighbor_left, neighbor_right+1):
+					diff[j*h+i] += abs(data[j*h+i, idx] - data[jj*h+ii, idx])
+
+	return diff
+
+def cal_neighboring_avg(data, idx, h, w, step):
+# calculate the average of a pixel's neighboring pixels
+# step: step controls the size of the window we will consider for the neighborhood, 
+#       for example, step = 1, we will consider the 3*3 window centered at each pixel; 
+#                    step = 2, we will consider the 5*5 window centered at each pixel;
+#                    step = k, we will consider the (2k+1)*(2k+1) window centered at each pixel.
+
+	avg = np.zeros([h*w])
+	for i in range(0, h):
+		for j in range(0, w):
+			# make sure the index for the left most neighbor is larger than 0
+			neighbor_left = max(j-step, 0)
+			# make sure the index for the right most neighbor is smaller than w
+			neighbor_right = min(j+step, w-1)
+			# make sure the index for the upper most neighbor is larger than 0
+			neighbor_up = max(i-step, 0)
+			# make sure the index for the lower most neighbor is smaller than h
+			neighbor_down = min(i+step, h-1)
+
+			# calculate the difference between pixel (i, j) with its neighbors
+			for ii in range(neighbor_up, neighbor_down+1):
+				for jj in range(neighbor_left, neighbor_right+1):
+					avg[j*h+i] += data[jj*h+ii, idx]
+
+			avg[j*h+i] /= (neighbor_right - neighbor_left + 1 + neighbor_down - neighbor_up + 1)
+
+	return avg
+
+
+def add_extra_features(data, h, w):
+# adding extra features to the data set
+	
+	# adding the sum of difference of L, a, b value between each pixel and its neighboring pixels as a new feature
+	# Lab_diff = np.empty([h*w, 3])
+
+	# adding the sum of difference of L
+	# Lab_diff[:, 0] = cal_neighboring_diff(data, 2, h, w)
+	# adding the sum of difference of a
+	# Lab_diff[:, 1] = cal_neighboring_diff(data, 3, h, w)
+	# adding the sum of difference of b
+	# Lab_diff[:, 2] = cal_neighboring_diff(data, 4, h, w)
+
+
+	# adding the average of L, a, b value as new feature
+	Lab_avg = np.empty([h*w, 3])
+
+	# adding the neighboring average of L
+	Lab_avg[:, 0] = cal_neighboring_avg(data, 2, h, w, 1)
+	# adding the neighboring average of a
+	Lab_avg[:, 1] = cal_neighboring_avg(data, 3, h, w, 1)
+	# adding the neighboring average of b
+	Lab_avg[:, 2] = cal_neighboring_avg(data, 4, h, w, 1)
+
+
+	return np.append(data, Lab_avg, axis=1)
+
+
 
 
 filename = sys.argv[1]
 data, image = read_data(filename, False)
+
+h, w, _ = image.shape
+
+# adding extra features to the data
+# data = add_extra_features(data, h, w)
 
 # initialize parameters
 miu, sigma, pi = initialize(data)
@@ -234,7 +327,7 @@ while True:
 	count += 1
 
 	# if the change of parameters is small, then output the result and break EM iterations
-	if diff_norm < 0.01:
+	if diff_norm < 1e-08:
 
 		# mask image
 		h, w, _ = image.shape
@@ -249,6 +342,7 @@ while True:
 				else:
 					foreground[j,i] = np.array([0,0,0])
 
+		# display the image
 		# cv2.imshow("", mask)
 		# cv2.waitKey(0)
 		# cv2.destroyAllWindows()
