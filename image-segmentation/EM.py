@@ -359,33 +359,4 @@ while True:
 		cv2.imwrite(filename.split(".")[0]+"_seg2.jpg", background*255)
 
 		break
-
-
-'''
-# evaluate() function is very slow, therefore use the difference between parameter norm as stopping criteria
-# initialize parameters
-miu, sigma, pi = initialize(data)
-# evaluate log likelihood
-likelihood_orig = evaluate(data, miu, sigma, pi)
-likelihood_update = likelihood_orig
-
-count = 1
-# EM iterations
-while True:
-
-	# evaluate responsibilities
-	gamma = expectation(data, miu, sigma, pi)
-	# re-estimate parameters
-	miu, sigma, pi = maximization(data, gamma)
-
-	likelihood_orig = likelihood_update
-	# evaluate log likelihood
-	likelihood_update = evaluate(data, miu, sigma, pi)
-
-	# output runtime information
-	print("Iteration " + str(count) + ": ")
-	print(str(likelihood_update) + " - " + str(likelihood_orig) + " = " + str(likelihood_update - likelihood_orig) + "\n")
-	count += 1
-	# if the increase of the likelihood is smaller than 1, output the result and break EM iterations
-	if likelihood_update - likelihood_orig < 1:
-'''
+		
