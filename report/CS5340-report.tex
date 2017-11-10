@@ -125,8 +125,8 @@ Using the above probability distribution for each pixel, we did gibbs sampling w
 \subsection{Features}
 We tried 3 different features for image segmentation.\\
 1) Lab features : The L, a and b values for each pixel \\
-2) Lab features with neighbour difference : \\
-3) Lab features with avg neighbour : \\
+2) Lab features with neighbour difference : For each pixel, we sum the differences of its L, a and b values with its neighbours' to form three new features for that pixel. \\
+3) Lab features with avg neighbour : For each pixel, we average its L, a and b values and its neighbours to form three new features for that pixel. \\
 
 From the results, we can see that Lab features with avg neighbour perform better that just Lab features as with the help of neighbours, small noise is filtered out more efficiently. However in case of zebra, this leads to worse results as white stripes of zebra are also filtered out. This shows the importance of correctly defining features.
 
