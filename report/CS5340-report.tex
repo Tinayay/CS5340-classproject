@@ -128,7 +128,9 @@ We tried 3 different features for image segmentation.\\
 2) Lab features with neighbour difference : For each pixel, we sum the differences of its L, a and b values with its neighbours' to form three new features for that pixel. \\
 3) Lab features with avg neighbour : For each pixel, we average its L, a and b values and its neighbours to form three new features for that pixel. \\
 
-From the results, we can see that Lab features with avg neighbour perform better that just Lab features as with the help of neighbours, small noise is filtered out more efficiently. However in case of zebra, this leads to worse results as white stripes of zebra are also filtered out. This shows the importance of correctly defining features.
+From the results, we can see that Lab features with avg neighbour perform better that just Lab features as with the help of neighbours, small noise is filtered out more efficiently. However in case of zebra, this leads to worse results as white stripes of zebra are also filtered out. This shows the importance of correctly defining features. \\
+For the Lab features with neighbour difference, we found that the results are worse than simply using Lab features. There are many noise spots appearing in the segmented images, especially for the owl picture. One reason for this phenomenon is that the pixel in the foreground and pixel in the background actually have similar values for the new added feature. Therefore, adding the new features actually reduce the contrast between foreground pixels and background pixels and makes the result worse. \\
+From our experiments on the effect of using different features, we learned that in order to obtain good results we need to use relevant features. Some controversial features will be harmful to our results. \\
 
 \subsection{Algorithm}
 For a given feature set, we first initialize the mean and covariance parameters of 2 gaussians by setting the covariance as covariance of the features for whole image and mean as a random value which is not very far from the actual mean for the whole image.
