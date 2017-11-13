@@ -128,7 +128,7 @@ We tried 3 different features for image segmentation.\\
 
 From the results, we can see that Lab features with avg neighbour perform better that just Lab features as with the help of neighbours, small noise is filtered out more efficiently. However in case of zebra, this leads to worse results as white stripes of zebra are also filtered out. \\
 For the Lab features with neighbour difference, we found that the results are worse than simply using Lab features. There are many noise spots appearing in the segmented images, especially for the owl picture. One reason for this phenomenon is that the pixel in the foreground and pixel in the background actually have similar values for the new added feature. Therefore, adding the new features actually reduce the contrast between foreground pixels and background pixels and makes the result worse. \\
-From our experiments on the effect of using different features, we learned that in order to obtain good results we need to use relevant features. Some controversial features will be harmful to our results. \\
+From our experiments on the effect of using different features, we learned that in order to obtain good results we need to use relevant features. Some controversial features will be harmful to our results. 
 
 \subsection{Algorithm}
 For a given feature set, we first initialize the mean and covariance parameters of 2 gaussians by setting the covariance as covariance of the features for whole image and mean as a random value which is not very far from the actual mean for the whole image.
@@ -136,6 +136,7 @@ For a given feature set, we first initialize the mean and covariance parameters 
 Then we calculate the probabilities for all pixels belonging to a given segments using gaussian functions as described in problem definition. Then we update parameters of gaussians by calculating weighted mean and covariances using probabilities calculated in E-step as weights. We update the mixing parameters by summing up the probabilities for each segment. We do this iteratively until the change in parameters is very small.
 
 \subsection{Results}
+\newpage
 
 \begin{center}
 \begin{tabular}{c}
